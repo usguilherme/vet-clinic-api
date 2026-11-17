@@ -61,12 +61,14 @@ class Agendamento(models.Model):
 
 # Tabela de atendimentos
 class Atendimento(models.Model):
+    STATUS_ESCOLHAS = [('EM_ABERTO', 'Em Aberto'), ('CONCLUIDO', 'Concluído')]
     data_hora = models.DateTimeField(auto_now_add=True)
     sintomas = models.TextField()
     diagnostico = models.TextField()
     observacoes = models.TextField()
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE)
     atendente = models.ForeignKey(Funcionario, on_delete=models.CASCADE)
+    status = models.CharField(max_length= 20, choices= STATUS_ESCOLHAS, default= 'EM_ABERTO')
 
     def __str__(self):
         return f"Atendimento: {self.pet.nome}"

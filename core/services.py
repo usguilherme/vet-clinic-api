@@ -154,8 +154,85 @@ def reagendar_consulta(agendamento_id, nova_data_hora):
         if agendamentoSelecionado.status.upper() in ['CANCELADO', 'CONCLUIDO']:
             raise ValueError('Seu agendamento já está concluido/cancelado')
         
-        #falta mais
+        #verificar se o veterinario já tem consulta marcada
+        conflito = Agendamento.objects.filter(funcionario = agendamentoSelecionado.funcionario, 
+        data_hora = nova_data_hora).exclude(id = agendamento_id).exclude(status = 'CANCELADO').exists() #procuro se há agendamento do mesmo funcionario, com a hora pedida do novo atendimento, e sem contar o agendamento atual, e sem considerar cancelados
+
+        if conflito:
+            raise ValueError('O veterinário já possui outra consulta marcada neste horário!')
         
+        #Atualizando meu agendamento
+        agendamentoSelecionado.data_hora = nova_data_hora 
+        agendamentoSelecionado.save() 
+    
+        return agendamentoSelecionado
+    
+def finalizar_atendimento_e_faturar(atendimento_id, produtos_utilizados):
+    with transaction.atomic(): #completa tudo, ou não faz nada
+        try:
+            atendimentoSelecionado = Atendimento.objects.select_for_update().get(id = atendimento_id)
+        except Atendimento.DoesNotExist:
+            raise ValueError('Atendimento não encontrado!')
+        
+        if atendimentoSelecionado.status.upper() == 'CONCLUIDO':
+            raise ValueError('Este atendimento já foi finalizado.')
+        
+        valor_total_atendimento = 0
+        vendas_realizadas = []
+
+        for item in produtos_utilizados:
+            id_prod = item['produto_id']
+            qnt = item['quantidade']
+
+            try:
+                produtoSelecionado = Produto.objects.select_for_update().get(id = id_prod)
+            except Produto.DoesNotExist:
+                raise ValueError('O produto selecionado não existe!')
+            
+            if produtoSelecionado.qnt_estoque < qnt: #se caso tiver mais do que no estoque
+                raise ValueError(f'Estoque insuficiente para o produto {produtoSelecionado.nome}. Disponível: {produtoSelecionado.qnt_estoque}')
+
+            produtoSelecionado.qnt_estoque -= qnt
+            produtoSelecionado.save() #save é tipo um UPDATE, já o create é o INSERT
+
+            #registando minha venda
+            venda = Venda.objects.create(produto=produtoSelecionado, qnt_vendida=qnt, preco_unit=produtoSelecionado.preco_venda)
+            vendas_realizadas.append(venda)
+            
+            #acumulando no valor
+            valor_total_atendimento += produtoSelecionado.preco_venda * qnt
+
+        # Finaliza o atendimento após processar todos os produtos do loop
+        atendimentoSelecionado.status = 'CONCLUIDO'
+        atendimentoSelecionado.save()
+
+        #buscar o animal
+        clienteSelecionado = atendimentoSelecionado.pet.cliente #vou na tabelça de atendimento, pego a foreign ket e ligo o nome do cliente
+
+        #criando a aba de financeiro
+        financeiro = Financeiro.objects.create(valor_total=valor_total_atendimento, forma_pagamento='Pendente', status_pagamento='Pendente', cliente=clienteSelecionado)
+        
+        return atendimentoSelecionado, vendas_realizadas, financeiro
+    
+def processar_pagamento(financeiro_id, forma_pagamento_escolhida):
+    with transaction.atomic():
+        try:
+            financeiroSelecionado = Financeiro.objects.select_for_update().get(id = financeiro_id)
+        except Financeiro.DoesNotExist:
+            raise ValueError('Financeiro não encontrado!')
+        
+        if financeiroSelecionado.status_pagamento.upper() == 'PAGO':
+            raise ValueError('O financeiro selecionado já foi pago')
+
+        #atualizando as variaveis de financeiro
+        financeiroSelecionado.forma_pagamento = forma_pagamento_escolhida.upper()
+        financeiroSelecionado.status_pagamento = 'PAGO'
+        financeiroSelecionado.save() #UPDATE na minha tabela
+        return financeiroSelecionado
+        
+
+
+
         
 
 
