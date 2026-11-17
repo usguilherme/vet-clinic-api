@@ -2,43 +2,43 @@ from django.db import transaction
 from .models import Produto, Venda, Financeiro, Cliente
 
 def processar_venda(produto_id, quantidade, cliente_id):
-    with transaction.atomic(): # Vai ser executado por completo, ou não vai ser executado
+    with transaction.atomic(): # vai ser executado por completo, ou não vai ser executado
         
-        # 1. Validação do produto
+        #validação do produto
         try: 
             produtoSelecionado = Produto.objects.select_for_update().get(id=produto_id) #se selecionado, travo até terminar a consulta
         except Produto.DoesNotExist: 
             raise ValueError('Produto não encontrado no sistema.')
         
-        # 2. Validar o estoque
+        #validar o estoque
         if quantidade > produtoSelecionado.qnt_estoque:
             raise ValueError(f'Estoque insuficiente, Disponível no momento: {produtoSelecionado.qnt_estoque}, solicitado: {quantidade}')
         
         if quantidade <= 0:
             raise ValueError('A quantidade vendida deve ser maior que zero.')
         
-        # 3. Buscar Cliente
+        #buscando cliente
         try:
             clienteSelecionado = Cliente.objects.get(id=cliente_id) 
         except Cliente.DoesNotExist: 
             raise ValueError('Cliente não encontrado!')
 
-        # 4. Dar baixa no estoque
+        #dando baixa no estoque
         produtoSelecionado.qnt_estoque -= quantidade
         produtoSelecionado.save() #usando o nome correto da variável
 
-        # 5. Registrar venda
+        #registrar venda
         venda = Venda.objects.create(
             produto=produtoSelecionado, 
             qnt_vendida=quantidade, 
             preco_unit=produtoSelecionado.preco_venda
         )
 
-        # 6. Calcular a venda total e gerar o financeiro
-        valor_total = produtoSelecionado.preco_venda * quantidade # Usando padrão snake_case
+        #calcular a venda total e gerar o financeiro
+        valor_total = produtoSelecionado.preco_venda * quantidade 
         
         financeiro = Financeiro.objects.create(
-            valor_total=valor_total, # Correção: Nome do campo igual ao model (valor_total)
+            valor_total=valor_total, 
             forma_pagamento='Pendente', 
             status_pagamento='Pendente', 
             cliente=clienteSelecionado # Passando o objeto do cliente inteiro
@@ -229,7 +229,7 @@ def processar_pagamento(financeiro_id, forma_pagamento_escolhida):
         financeiroSelecionado.status_pagamento = 'PAGO'
         financeiroSelecionado.save() #UPDATE na minha tabela
         return financeiroSelecionado
-        
+
 
 
 
