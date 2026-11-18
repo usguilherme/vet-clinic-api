@@ -1,5 +1,6 @@
 from django.db import transaction
-from .models import Produto, Venda, Financeiro, Cliente
+from .models import Cliente, Pet, Funcionario, Produto, Venda, Atendimento, Agendamento, Financeiro
+
 
 def processar_venda(produto_id, quantidade, cliente_id):
     with transaction.atomic(): # vai ser executado por completo, ou não vai ser executado
@@ -58,7 +59,7 @@ def registrar_atendimento(pet_id, funcionario_id, sintomas, diagnostico, observa
         except Funcionario.DoesNotExist:
             raise ValueError('Funcionário não existente!')
         
-        atendimento = Atendimento.objects.create(sistemas = sintomas,
+        atendimento = Atendimento.objects.create(sintomas = sintomas,
          diagnostico = diagnostico, 
          observacoes = observacoes, 
          pet = petSelecionado, 
@@ -207,7 +208,7 @@ def finalizar_atendimento_e_faturar(atendimento_id, produtos_utilizados):
         atendimentoSelecionado.save()
 
         #buscar o animal
-        clienteSelecionado = atendimentoSelecionado.pet.cliente #vou na tabelça de atendimento, pego a foreign ket e ligo o nome do cliente
+        clienteSelecionado = atendimentoSelecionado.pet.tutor #vou na tabelça de atendimento, pego a foreign ket e ligo o nome do cliente
 
         #criando a aba de financeiro
         financeiro = Financeiro.objects.create(valor_total=valor_total_atendimento, forma_pagamento='Pendente', status_pagamento='Pendente', cliente=clienteSelecionado)
