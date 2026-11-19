@@ -235,9 +235,7 @@ def processar_pagamento(financeiro_id, forma_pagamento_escolhida):
 
 
         
-
-
-
+#Irei adicionar mais métodos, ass guilherme
     
 
 
